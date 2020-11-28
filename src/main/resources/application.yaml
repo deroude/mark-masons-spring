@@ -1,0 +1,15 @@
+server:
+  port: 9000
+spring:
+  datasource:
+    url: jdbc:postgresql://34.89.149.252/postgres?sslmode=require
+    username: postgres
+    password: 3Ani,VenerabileMaestru!
+  jpa:
+    show-sql: true
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: https://accounts.google.com
+          jwk-set-uri: https://www.googleapis.com/oauth2/v3/certs
