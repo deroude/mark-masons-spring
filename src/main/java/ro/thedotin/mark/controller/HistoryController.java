@@ -2,6 +2,7 @@ package ro.thedotin.mark.controller;
 
 
 import org.springframework.http.HttpStatus;
+import org.springframework.security.access.annotation.Secured;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.client.HttpClientErrorException;
 import ro.thedotin.mark.domain.History;
@@ -25,11 +26,13 @@ public class HistoryController {
     }
 
     @GetMapping()
+    @Secured("ROLE_OFFICER")
     List<History> getHistory(@PathVariable("userId") Long userId) {
         return this.historyRepository.findByUser(userId);
     }
 
     @PostMapping()
+    @Secured("ROLE_OFFICER")
     History addHistory(@PathVariable("userId") Long userId, @RequestBody History u) {
         final User found = this.userRepository.findById(userId)
                 .orElseThrow(() -> new HttpClientErrorException(HttpStatus.NOT_FOUND));
@@ -38,6 +41,7 @@ public class HistoryController {
     }
 
     @PutMapping("/{id}")
+    @Secured("ROLE_OFFICER")
     History modifyHistory(@PathVariable("userId") Long userId, @PathVariable("id") Long id, @RequestBody History u) {
         final History found = this.historyRepository.findById(id)
                 .orElseThrow(() -> new HttpClientErrorException(HttpStatus.NOT_FOUND));
@@ -53,6 +57,7 @@ public class HistoryController {
     }
 
     @DeleteMapping("/{id}")
+    @Secured("ROLE_OFFICER")
     void deleteHistory(@PathVariable("userId") Long userId, @PathVariable("id") Long id) {
         final History found = this.historyRepository.findById(id)
                 .orElseThrow(() -> new HttpClientErrorException(HttpStatus.NOT_FOUND));

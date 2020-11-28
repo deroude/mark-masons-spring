@@ -3,6 +3,7 @@ package ro.thedotin.mark.controller;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.access.annotation.Secured;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.client.HttpClientErrorException;
 import ro.thedotin.mark.domain.Lodge;
@@ -25,16 +26,19 @@ public class LodgeController {
     }
 
     @GetMapping
+    @Secured("ROLE_OFFICER")
     List<Lodge> getLodges(){
         return this.lodgeRepository.findAll();
     }
 
     @PostMapping
+    @Secured("ROLE_OFFICER")
     Lodge addLodge(@RequestBody Lodge u){
         return this.lodgeRepository.saveAndFlush(u);
     }
 
     @PutMapping("/{id}")
+    @Secured("ROLE_OFFICER")
     Lodge modifyLodge(@PathVariable("id")Long id, @RequestBody Lodge u){
         final Lodge found = this.lodgeRepository.findById(id)
                 .orElseThrow(()->new HttpClientErrorException(HttpStatus.NOT_FOUND));
@@ -47,6 +51,7 @@ public class LodgeController {
     }
 
     @DeleteMapping("/{id}")
+    @Secured("ROLE_OFFICER")
     void deleteLodge(@PathVariable("id")Long id){
         final Lodge found = this.lodgeRepository.findById(id)
                 .orElseThrow(()->new HttpClientErrorException(HttpStatus.NOT_FOUND));
