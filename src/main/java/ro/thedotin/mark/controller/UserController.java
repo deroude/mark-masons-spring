@@ -1,6 +1,8 @@
 package ro.thedotin.mark.controller;
 
+import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.dataformat.csv.CsvMapper;
+import com.fasterxml.jackson.dataformat.csv.CsvParser;
 import com.fasterxml.jackson.dataformat.csv.CsvSchema;
 import fr.opensagres.xdocreport.converter.ConverterTypeTo;
 import fr.opensagres.xdocreport.converter.ConverterTypeVia;
@@ -25,13 +27,19 @@ import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.servlet.mvc.method.annotation.StreamingResponseBody;
 import ro.thedotin.mark.domain.User;
+import ro.thedotin.mark.domain.dto.UserCSV;
 import ro.thedotin.mark.repository.UserRepository;
 
 import java.io.IOException;
 import java.io.InputStream;
 import java.text.DateFormat;
+import java.text.MessageFormat;
+import java.text.ParseException;
 import java.text.SimpleDateFormat;
+import java.time.ZoneId;
 import java.util.*;
+
+import static ro.thedotin.mark.domain.dto.UserCSV.dobFormat;
 
 @RestController
 @RequestMapping("/user")
@@ -41,10 +49,10 @@ public class UserController {
     private final UserRepository userRepository;
     private final Resource clearanceTemplate;
 
-    private final DateFormat dateFormat = new SimpleDateFormat("dd MM, YYYY");
+    private final DateFormat dateFormat = new SimpleDateFormat("dd MM, yyyy");
 
     private final CsvMapper csv = new CsvMapper();
-    private final CsvSchema csvSchema = csv.schemaFor(User.class).withHeader();
+    private final CsvSchema csvSchema = csv.typedSchemaFor(UserCSV.class).withHeader().withUseHeader(true).withColumnReordering(true);
 
 
     @Autowired
@@ -98,13 +106,50 @@ public class UserController {
         this.userRepository.delete(found);
     }
 
-    @PostMapping("/upload")
+    @PutMapping
     @Secured("ROLE_OFFICER")
     public void uploadCsv(@RequestParam("file") MultipartFile file) throws IOException {
-        this.userRepository.saveAll(
-                csv.reader(csvSchema)
-                        .<User>readValues(file.getInputStream())
-                        .readAll());
+        csv
+                .enable(CsvParser.Feature.IGNORE_TRAILING_UNMAPPABLE)
+                .disable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES)
+                .readerFor(UserCSV.class)
+                .with(csvSchema)
+                .<UserCSV>readValues(file.getInputStream())
+                .readAll()
+                .forEach(row -> {
+                    final User user = this.userRepository.findByEmail(row.getEmail()).map(u -> {
+                        u.setEmail(row.getEmail());
+                        u.setLastName(row.getLastName());
+                        u.setFirstName(row.getFirstName());
+                        u.setRank(row.getPrefix());
+                        u.setAddress(MessageFormat.format("{0} {1} {2}, {3}, {4}, {5}",
+                                row.getAddress(),
+                                row.getAddress2(),
+                                row.getAddress3(),
+                                row.getCounty(),
+                                row.getCity(),
+                                row.getCountry()));
+                        try {
+                            u.setBirthdate(dobFormat.parse(row.getDob()).toInstant()
+                                    .atZone(ZoneId.systemDefault())
+                                    .toLocalDate());
+                        } catch (ParseException e) {
+                            // ignore
+                        }
+                        u.setMmh(row.getMmh());
+                        u.setPhoneNumber(row.getPhone());
+                        u.setSecondaryPhoneNumber(row.getSecondaryPhone());
+                        return u;
+                    }).orElse(row.toUser());
+                    this.userRepository.save(user);
+                });
+    }
+
+    @GetMapping(value = "/whoami")
+    @Secured({"ROLE_USER", "ROLE_OFFICER"})
+    public User whoAmI() {
+        final String email = ((Jwt) SecurityContextHolder.getContext().getAuthentication().getPrincipal()).getClaimAsString("email");
+        return this.userRepository.findByEmail(email).orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "User not found"));
     }
 
     @GetMapping(value = "/me/clearance", produces = MediaType.APPLICATION_PDF_VALUE)
