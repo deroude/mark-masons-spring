@@ -39,6 +39,9 @@ public class Article {
     private String language;
 
     @Column
+    private String audience;
+
+    @Column
     private LocalDate publishDate;
 
 }

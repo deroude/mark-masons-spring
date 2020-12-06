@@ -1,7 +1,6 @@
 package ro.thedotin.mark.controller;
 
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.annotation.Secured;
@@ -17,6 +16,7 @@ import ro.thedotin.mark.repository.UserRepository;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 
 @RestController
 @RequestMapping("/article")
@@ -34,8 +34,18 @@ public class ArticleController {
 
     @GetMapping
     @Secured({"ROLE_USER", "ROLE_OFFICER"})
-    public List<Article> getArticles(@RequestParam(name = "filter", required = false) String search, Pageable pageable) {
-        return this.articleRepository.search(search, pageable).getContent();
+    public List<Article> getArticles(@RequestParam(name = "filter", required = false) String search,
+                                     @RequestParam(name = "filter", required = false) String language,
+                                     @RequestParam(name = "filter", required = false) String category,
+                                     Pageable pageable) {
+        final String email = ((Jwt) SecurityContextHolder.getContext().getAuthentication().getPrincipal()).getClaimAsString("email");
+        final String audience = this.userRepository.findByEmail(email)
+                .map(u -> Objects.equals(u.getOrderPrivilege(), "OFFICER") ? "OFFICER" : "LODGE").orElse(null);
+        return this.articleRepository.search(search,
+                Optional.ofNullable(language).map(String::toLowerCase).orElse("en"),
+                Optional.ofNullable(category).map(String::toUpperCase).orElse("PUBLIC"),
+                audience,
+                pageable).getContent();
     }
 
     @PostMapping
